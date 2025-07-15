@@ -16,5 +16,4 @@ REPO_URL="https://$GITHUB_USERNAME:$GITHUB_TOKEN@github.com/dmitrykoro/live-vide
 cd /home/ec2-user
 
 git clone "$REPO_URL"
-cd cloud_video_notifications/
-
+cd live-video-object-detection/
