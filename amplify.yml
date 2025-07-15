@@ -1,0 +1,115 @@
+version: 1
+backend:
+  phases:
+    build:
+      commands:
+        - 'pwd'
+        - 'ls -la'
+        - 'find . -type d -name "wingsight" | grep -v "node_modules" || echo "No wingsight directories found"'
+        - 'echo "Looking for frontend directories..."'
+        - cd ./src/wingsight-frontend/wingsight || cd ./wingsight-frontend/wingsight || cd ./wingsight || echo "Could not find wingsight directory"
+        - 'pwd'
+        - 'echo "Installing dependencies..."'
+        - npm ci || echo "npm ci failed - continuing anyway"
+        - 'echo "Configuring Amplify backend environment..."'
+        
+        # Set environment variables required by Amplify Gen 2
+        - 'echo "USER_POOL_ID=$USER_POOL_ID" > .env'
+        - 'echo "USER_POOL_CLIENT_ID=$USER_POOL_CLIENT_ID" >> .env'
+        - 'echo "IDENTITY_POOL_ID=$IDENTITY_POOL_ID" >> .env'
+        - 'echo "AUTH_ROLE_ARN=$AUTH_ROLE_ARN" >> .env'
+        - 'echo "UNAUTH_ROLE_ARN=$UNAUTH_ROLE_ARN" >> .env'
+        - 'echo "VITE_AWS_REGION=$VITE_AWS_REGION" >> .env'
+        - 'echo "REGION=$REGION" >> .env'  # Changed from AWS_REGION to REGION
+        - cat .env || echo "No .env file found"
+        
+        # Install Amplify-specific tools
+        - 'echo "Installing Amplify CLI tools..."'
+        - npm install -g @aws-amplify/cli@latest || echo "Failed to install Amplify CLI globally"
+        
+        # Generate configuration files using Amplify Gen 2
+        - 'echo "Generating Amplify backend configuration..."'
+        - npx ampx generate || echo "Failed to generate Amplify config"
+        
+        # Create the required amplify_outputs.json file for frontend
+        - 'echo "Creating amplify_outputs.json with authentication information..."'
+        - >-
+          echo '{"Auth":{"Cognito":{"userPoolId":"'"$USER_POOL_ID"'","userPoolClientId":"'"$USER_POOL_CLIENT_ID"'","identityPoolId":"'"$IDENTITY_POOL_ID"'","region":"'"$VITE_AWS_REGION"'"}}}' > amplify_outputs.json
+        - cat amplify_outputs.json || echo "amplify_outputs.json not found"
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - 'pwd'
+        - 'ls -la'
+        - 'echo "CURRENT_DIR=$(pwd)"'
+        - cd ./src/wingsight-frontend/wingsight || cd ./wingsight-frontend/wingsight || cd ./wingsight || echo "Could not find wingsight directory"
+        - 'FRONTEND_DIR=$(pwd)'
+        - 'echo "FRONTEND_DIR=$FRONTEND_DIR"'
+        - 'echo "Frontend preBuild phase starting..."'
+        - 'ls -la'
+        - npm ci || echo "npm ci failed - trying to continue"
+        
+        # Debug environment variables
+        - 'echo "USER_POOL_ID is set to: $USER_POOL_ID"'
+        - 'echo "USER_POOL_CLIENT_ID is set to: $USER_POOL_CLIENT_ID"'
+        - 'echo "IDENTITY_POOL_ID is set to: $IDENTITY_POOL_ID"'
+        - 'echo "AUTH_ROLE_ARN is set to: $AUTH_ROLE_ARN"'
+        - 'echo "UNAUTH_ROLE_ARN is set to: $UNAUTH_ROLE_ARN"'
+        
+        # Copy amplify_outputs.json from backend phase if exists
+        - 'echo "Ensuring amplify_outputs.json exists..."'
+        - >-
+          if [ ! -f "amplify_outputs.json" ]; then
+            echo '{"Auth":{"Cognito":{"userPoolId":"'"$USER_POOL_ID"'","userPoolClientId":"'"$USER_POOL_CLIENT_ID"'","identityPoolId":"'"$IDENTITY_POOL_ID"'","region":"'"$VITE_AWS_REGION"'"}}}' > amplify_outputs.json
+          fi
+        - ls -la
+        - cat amplify_outputs.json
+        
+        # Modify index.html to include Cognito credentials directly in the HTML
+        - 'echo "Adding Cognito credentials to index.html for runtime access"'
+        - >-
+          sed -i "/<\/head>/i \    <script>\n      window.AMPLIFY_AUTH_CONFIG = {\n        auth: {\n          Cognito: {\n            userPoolId: \"$USER_POOL_ID\",\n            userPoolClientId: \"$USER_POOL_CLIENT_ID\",\n            identityPoolId: \"$IDENTITY_POOL_ID\",\n            region: \"$VITE_AWS_REGION\" || \"us-east-1\"\n          }\n        }\n      };\n      console.log(\"Injected auth config at build time:\", window.AMPLIFY_AUTH_CONFIG);\n    </script>" index.html
+        - cat index.html | grep AMPLIFY_AUTH_CONFIG
+    build:
+      commands:
+        - 'echo "Starting frontend build..."'
+        - 'pwd'
+        - ls -la
+        - 'echo "Verifying amplify_outputs.json exists at current location:"'
+        - 'cat amplify_outputs.json || echo "File not found!"'
+        - 'mkdir -p dist'
+        
+        # Add all environment variables to the build command
+        - >-
+          USER_POOL_ID="$USER_POOL_ID" 
+          USER_POOL_CLIENT_ID="$USER_POOL_CLIENT_ID" 
+          IDENTITY_POOL_ID="$IDENTITY_POOL_ID" 
+          AUTH_ROLE_ARN="$AUTH_ROLE_ARN" 
+          UNAUTH_ROLE_ARN="$UNAUTH_ROLE_ARN" 
+          REGION="$REGION"
+          VITE_USER_POOL_ID="$USER_POOL_ID" 
+          VITE_USER_POOL_CLIENT_ID="$USER_POOL_CLIENT_ID" 
+          VITE_IDENTITY_POOL_ID="$IDENTITY_POOL_ID" 
+          VITE_AWS_REGION="$VITE_AWS_REGION" 
+          npm run build
+          
+        - 'echo "Checking build output..."'
+        - 'ls -la'
+        - 'ls -la dist || echo "No dist directory found"'
+        
+        # Add Cognito credentials directly to build output HTML for reliable access
+        - 'echo "Injecting Cognito credentials into build output HTML"'
+        - >-
+          sed -i "/<\/head>/i \    <script>\n      window.AMPLIFY_AUTH_CONFIG = {\n        auth: {\n          Cognito: {\n            userPoolId: \"$USER_POOL_ID\",\n            userPoolClientId: \"$USER_POOL_CLIENT_ID\",\n            identityPoolId: \"$IDENTITY_POOL_ID\",\n            region: \"$VITE_AWS_REGION\" || \"us-east-1\"\n          }\n        }\n      };\n      console.log(\"Injected auth config in production build:\", window.AMPLIFY_AUTH_CONFIG);\n    </script>" dist/index.html
+        - 'cat dist/index.html | grep AMPLIFY_AUTH_CONFIG'
+        - 'cp -r dist "$FRONTEND_DIR/../"'
+        - 'ls -la "$FRONTEND_DIR/../"'
+  artifacts:
+    baseDirectory: ./src/wingsight-frontend/dist
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - .npm/**/*
+      - node_modules/**/*
