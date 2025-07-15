@@ -45,7 +45,6 @@ resource "aws_launch_template" "ec2_stream_parser" {
       rabbitmq_user     = var.rabbitmq_user
       rabbitmq_password = var.rabbitmq_password
       img_bucket_name   = var.img_bucket_name
-      api_url = "https://${aws_api_gateway_rest_api.my_api.id}.execute-api.${var.aws_region}.amazonaws.com/dev/${aws_api_gateway_resource.createaudio.path_part}"
       user_pool_id      = aws_cognito_user_pool.user_pool.id
       app_client_id     = aws_cognito_user_pool_client.user_pool_client.id
     }),

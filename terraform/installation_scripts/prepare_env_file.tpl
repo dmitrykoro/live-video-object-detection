@@ -14,10 +14,7 @@ sudo sed -i 's/MQ_HOST=localhost/MQ_HOST=${rabbitmq_host}/g' .env
 sudo sed -i 's/MQ_USER=mq_user_here/MQ_USER=${rabbitmq_user}/g' .env
 sudo sed -i 's/MQ_PASSWORD=mq_password_here/MQ_PASSWORD=${rabbitmq_password}/g' .env
 
-sudo sed -i 's/API_URL=url/API_URL=${api_url}/g' .env
-
 sudo sed -i 's/USER_POOL_ID=user_pool_id_here/USER_POOL_ID=${user_pool_id}/g' .env
 sudo sed -i 's/APP_CLIENT_ID=app_client_id_here/APP_CLIENT_ID=${app_client_id}/g' .env
-
 
 cd "$PROJECT_ROOT_DIR"

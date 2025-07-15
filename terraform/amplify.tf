@@ -40,7 +40,6 @@ resource "aws_amplify_app" "amplify_app" {
     VITE_WINGSIGHT_API_URL = "/v1/"  # Use relative URL instead of full domain
     # Use the API Gateway v2 endpoint
     VITE_API_GATEWAY_URL = aws_apigatewayv2_api.django_api.api_endpoint
-    VITE_API_POLLY = "https://${aws_api_gateway_rest_api.my_api.id}.execute-api.${var.aws_region}.amazonaws.com/dev/${aws_api_gateway_resource.playaudio.path_part}"
   }
 
   enable_auto_branch_creation = true
